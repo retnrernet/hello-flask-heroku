@@ -9,8 +9,8 @@ FORM_PAGE = """
         </head>
         <body>
             <form action="/process" method="POST">
-                <input name="URL" />
-                <input type="submit" />
+                <input name="URL" text-align:center/>
+                <input type="submit" text-align:center/>
                 <iframe src="https://github.com/harishvinukumar/Mini-Search-Engine" width="468" height="60" align="left"></iframe>
             </form>
     </html>
