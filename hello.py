@@ -23,6 +23,5 @@ def home_form():
 def process_form():
     formData = request.values if request.method == "GET" else request.values
     response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()] )
-    return formData
 if __name__ == '__main__':
     app.run()
