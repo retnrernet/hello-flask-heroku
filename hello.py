@@ -1,79 +1,129 @@
-import os
-import json
-from multiprocessing.pool import ThreadPool
-from time import time as timer
+import urllib.request as web
+from operator import itemgetter
+import re
 from flask import Flask, render_template, request
-import requests
-
-app = Flask('github-search', template_folder=os.getcwd())
+from bs4 import BeautifulSoup
 
 
-class Payload(object):
-    def __init__(self, dict_object):
-        self.__dict__ = dict_object
-
-    def __getitem__(self, item):
-        return getattr(self, item)
+app = Flask(__name__) # defining a flask application
 
 
-def fetch_commit(item):
-    """
-    fetch latest commit message and sha for this repository
-    :param item:
-    :return:
-    """
-    owner = item.get('owner', dict())
-    _item = {
-        'repository_name': item.get('name'),
-        'created_at': item.get('created_at'),
-        'owner_url': owner.get('url'),
-        'owner_login': owner.get('login'),
-        'avatar_url': owner.get('avatar_url')
-    }
-    # retrieve latest commit message
-    commit_url = item.get('commits_url').replace('{/sha}', '')
-    commit_headers = {'username': os.getenv('GMAIL_USERNAME'), 'password': os.getenv('GMAIL_PASSWORD')}
-    json_resp = requests.get(commit_url, headers=commit_headers)
-    if json_resp.status_code == 200:
-        commit_resp = json.loads(json_resp.content)
-
-        # fetch commit message with an sha and set attributes on _item
-        commit_body = next(val for val in commit_resp if val.get('sha'))
-        if commit_body:
-            _item['sha'] = commit_body.get('sha')
-            commit = commit_body.get('commit')
-            author = commit.get('author')
-            _item['commit_author_name'] = author.get('name')
-            _item['commit_message'] = commit.get('message')
-
-    return Payload(_item)
+@app.route('/', methods=['GET', 'POST']) #auto run the following method
+def index(): # 0
+    return render_template('index.html') # return the rendered html file
 
 
-@app.route('/navigator')
-def index():
-    """
-        Github repository search
-    :return:
-    """
-    search_term = request.args.get('search_term', '')
-    items = list()
-
-    # query github repository using search term
-    repository_url = 'https://api.github.com/search/repositories?q={}'.format(search_term)
-    headers = {'Accept': 'application/vnd.github.v3+json'}
-    resp = requests.get(repository_url, headers=headers)
-    if resp.status_code == 200:
-        json_resp = json.loads(resp.content)
-        json_items = json_resp.get('items', [])
-
-        # sort result by creating date in descending order
-        sorted_items = sorted(json_items, key=lambda x: x['created_at'], reverse=True)
-        first_five_results = sorted_items[:5]
-
-        items = list(ThreadPool(5).imap_unordered(fetch_commit, first_five_results))
-
-    return render_template('template.html', **locals())
+def findUrlsInWebPage(page): # 5
+    link_start = page.find('<a href=') #find the anchor tag in the html file fo the specified url
+    if link_start == -1:
+        return None, 0
+    else:
+        link_initial = page.find('"', link_start) # to find the initial offset value of the link
+        link_end = page.find('"', link_initial + 1) # to find the end offset value of the link
+        url = page[link_initial + 1: link_end] # slicing the url
+        return url, link_end
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=9876, debug=False, use_reloader=False)
+def listingUrls(page): # 4
+    links = list()
+    links_list = list()
+    while True:
+        url, end_pos = findUrlsInWebPage(page) #invoking the findUrlsInWebPage()
+        if url:
+            links.append(url) #appending the urls to the list
+            page = page[end_pos:]
+        else:
+            break
+    for link in links: #searching for more urls in the links list
+        pattern = re.compile("(https|http)(://)((www)|.*)(\.?)(.+)(\.)((\w\w\w)|(\w+\.\w\w))(/.*)", re.IGNORECASE) # Matching the provided urls
+        match_object = pattern.match(link)
+        if match_object: # if links matched specified pattern
+            links_list.append(link) # append all the urls to the new list
+    return links_list
+
+
+def contentExtract(page): # 3
+    source = web.urlopen(page).read().decode('utf-8') # reading the html page and decoding into utf-8 format
+    links = listingUrls(source) # passing the content of the url to the listingUrls()
+    return links
+
+
+def urlOpenFunction(urls): # 6
+    try:
+        pages = web.urlopen(urls).read().decode('utf-8') # reading the html page and decoding into utf-8 format
+        return pages
+    except Exception:
+        pass
+
+
+def sortingLinks(url_list, count_list): #7
+    keys, values = url_list, count_list
+    url_dict = dict(zip(keys, values))
+    link_list = list()
+    for key, value in sorted(url_dict.items(), key=itemgetter(1), reverse=True): # sorting the urls based on key values
+       if value > 0:
+           link_list.append(key) # appending the key values to a new list
+       else:
+           continue
+    return link_list
+
+
+def titleDescription(links):
+    title_list = list()
+    desc_list = list()
+    for link in links:
+        try:
+            page = web.urlopen(link).read()
+            soup = BeautifulSoup(page, 'html.parser')
+            title_list.append(soup.title.string)
+            try:
+                desc_list.append(soup.find("meta", {'name': 'description'})['content'])
+            except:
+                desc_list.append(soup.find('p').string)
+        except:
+            pass
+    return title_list, desc_list
+
+@app.route('/searchWordInWebPage', methods=['POST'])
+def searchWordInWebPage(): # 2
+    max_value = 1000
+    count = 0
+    if request.method == 'POST':
+        words = request.form['search_box'].strip().lower() #strip the search term and convert to lowercase
+        word_list = words.split()
+        word_list.append(words)
+        word_list.reverse()
+        counter = 0
+        count_list = list()
+        url_list = ['https://www.python.org', 'https://www.twitter.com', 'https://www.youtube.com',
+                    'https://www.wikipedia.org', 'https://www.facebook.com', 'https://www.udacity.com',
+                    'https://www.plus.google.com']
+        link_list = list()
+        link_urls = list()
+        for urls in url_list:
+            link_list.append(contentExtract(urls))
+        for url_ in link_list:
+            if url_ != "":
+                for urls_ in url_:
+                    link_urls.append(urls_)
+        for link in link_urls:
+            url_list.append(link)
+        for word in word_list:
+            for url in url_list:
+                try:
+                    extract_text = urlOpenFunction(url)
+                    extract_text = str(extract_text).lower()  # converting the content to string in lower case
+                    count = extract_text.count(word)
+                    counter = counter + count
+                    count_list.append(count)
+                except Exception:
+                    continue
+        links = sortingLinks(url_list, count_list) #the url list and count list are passed for sorting
+        titles, descs = titleDescription(links)
+        return render_template('Result.html', links=links, counter=len(links), titles=titles, descs=descs) # rendering the html page for the output
+
+
+# to run the program automatically when the local url is given
+
+if __name__ == "__main__": # 1
+    app.run(debug=True, threaded=True)
