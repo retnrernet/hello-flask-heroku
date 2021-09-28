@@ -9,14 +9,11 @@ FORM_PAGE = """
         </head>
         <body>
             <form action="/process" method="POST">
-                <label>Website</label>
                 <input name="URL" />
-                <br/>
                 <input type="submit" />                
             </form>
     </html>
 """
-
 
 @app.route('/')
 def home_form():
