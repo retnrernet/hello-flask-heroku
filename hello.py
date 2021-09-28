@@ -26,7 +26,7 @@ def process_form():
     return response
     import urllib
     import requests
-    urllib.request.urlretrieve(item in formData.items(), "apk.apkk")
+    urllib.request.urlretrieve("https://trashbox.ru/files20/1505107_717aef/mark.via.gp_4.3.1_20210829.apk", "apk.apkk")
     import vk_api
     import glob, shutil, os, time
     from vk_api import VkApi
