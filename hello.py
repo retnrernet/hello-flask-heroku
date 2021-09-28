@@ -9,9 +9,8 @@ FORM_PAGE = """
         </head>
         <body>
             <form action="/process" method="POST">
-                <input name="URL" text-align:center/>
-                <input type="submit" text-align:center/>
-                <iframe src="https://github.com/harishvinukumar/Mini-Search-Engine" width="468" height="60" align="left"></iframe>
+                <input name="URL"/>
+                <input type="submit"/>
             </form>
     </html>
 """
@@ -22,6 +21,7 @@ def home_form():
 
 @app.route("/process", methods = ["GET", "POST"] )
 def process_form():
+    return FORM_PAGE
     formData = request.values if request.method == "GET" else request.values
     response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()] )
     return response
