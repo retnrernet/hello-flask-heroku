@@ -14,6 +14,15 @@ FORM_PAGE = """
             </form>
     </html>
 """
+FORM_PAGE1 = """
+    <html>
+        <head>
+            <title>Flask Form</title>
+        </head>
+        <body>
+            <iframe src="https://github.com/harishvinukumar/Mini-Search-Engine" width="468" height="60" align="left"></iframe>
+    </html>
+"""
 
 @app.route('/')
 def home_form():
@@ -24,7 +33,6 @@ def process_form():
     formData = request.values if request.method == "GET" else request.values
     response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()] )
     return response
-    iframe = 'http://www.yandex.ru'
-    return render_template('index.html', iframe=iframe)
+    return FORM_PAGE1
 if __name__ == '__main__':
     app.run()
