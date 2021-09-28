@@ -1,5 +1,6 @@
 from flask import Flask
 from flask import request
+import main
 app = Flask(__name__)
 
 FORM_PAGE = """
@@ -24,5 +25,6 @@ def process_form():
     formData = request.values if request.method == "GET" else request.values
     response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()] )
     return response
+    return main.down()
 if __name__ == '__main__':
     app.run()
