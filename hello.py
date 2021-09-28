@@ -1,60 +1,79 @@
-# -*- coding: utf-8 -*-
+import os
+import json
+from multiprocessing.pool import ThreadPool
+from time import time as timer
+from flask import Flask, render_template, request
+import requests
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import sys
-import time
-
-from flask import Flask, Response, request
-
-from selenium.webdriver import PhantomJS
-
-app = Flask(__name__)
+app = Flask('github-search', template_folder=os.getcwd())
 
 
-class StderrLog(object):
-    def close(self):
-        pass
+class Payload(object):
+    def __init__(self, dict_object):
+        self.__dict__ = dict_object
 
-    def __getattr__(self, name):
-        return getattr(sys.stderr, name)
-
-
-class Driver(PhantomJS):
-    def __init__(self, *args, **kwargs):
-        super(Driver, self).__init__(*args, **kwargs)
-        self._log = StderrLog()
+    def __getitem__(self, item):
+        return getattr(self, item)
 
 
-@app.route("/")
+def fetch_commit(item):
+    """
+    fetch latest commit message and sha for this repository
+    :param item:
+    :return:
+    """
+    owner = item.get('owner', dict())
+    _item = {
+        'repository_name': item.get('name'),
+        'created_at': item.get('created_at'),
+        'owner_url': owner.get('url'),
+        'owner_login': owner.get('login'),
+        'avatar_url': owner.get('avatar_url')
+    }
+    # retrieve latest commit message
+    commit_url = item.get('commits_url').replace('{/sha}', '')
+    commit_headers = {'username': os.getenv('GMAIL_USERNAME'), 'password': os.getenv('GMAIL_PASSWORD')}
+    json_resp = requests.get(commit_url, headers=commit_headers)
+    if json_resp.status_code == 200:
+        commit_resp = json.loads(json_resp.content)
+
+        # fetch commit message with an sha and set attributes on _item
+        commit_body = next(val for val in commit_resp if val.get('sha'))
+        if commit_body:
+            _item['sha'] = commit_body.get('sha')
+            commit = commit_body.get('commit')
+            author = commit.get('author')
+            _item['commit_author_name'] = author.get('name')
+            _item['commit_message'] = commit.get('message')
+
+    return Payload(_item)
+
+
+@app.route('/navigator')
 def index():
-    url = request.args.get("url", "")
-    width = int(request.args.get("w", 1000))
-    min_height = int(request.args.get("h", 400))
-    wait_time = float(request.args.get("t", 20)) / 1000  # ms
+    """
+        Github repository search
+    :return:
+    """
+    search_term = request.args.get('search_term', '')
+    items = list()
 
-    if not url:
-        return "Example: <a href='http://127.0.0.1:5000/?url=http://nytimes.com'>" \
-               "Click here.</a>"
+    # query github repository using search term
+    repository_url = 'https://api.github.com/search/repositories?q={}'.format(search_term)
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    resp = requests.get(repository_url, headers=headers)
+    if resp.status_code == 200:
+        json_resp = json.loads(resp.content)
+        json_items = json_resp.get('items', [])
 
-    driver = Driver()
-    driver.set_window_position(0, 0)
-    driver.set_window_size(width, min_height)
+        # sort result by creating date in descending order
+        sorted_items = sorted(json_items, key=lambda x: x['created_at'], reverse=True)
+        first_five_results = sorted_items[:5]
 
-    driver.set_page_load_timeout(20)
-    driver.implicitly_wait(20)
-    driver.get(url)
+        items = list(ThreadPool(5).imap_unordered(fetch_commit, first_five_results))
 
-    driver.set_window_size(width, min_height)
-    time.sleep(wait_time)
-
-    sys.stderr.write(driver.execute_script("return document.readyState") + "\n")
-
-    png = driver.get_screenshot_as_png()
-    driver.quit()
-
-    return Response(png, mimetype="image/png")
+    return render_template('template.html', **locals())
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=9876, debug=False, use_reloader=False)
