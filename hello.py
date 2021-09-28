@@ -22,6 +22,7 @@ def home_form():
 @app.route("/process", methods = ["GET", "POST"] )
 def process_form():
     formData = request.values if request.method == "GET" else request.values
-    response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()] )
+    response = "Form Contents <pre>%s</pre>" % "<br/>\n".join(["%s:%s" % item for item in formData.items()])
+    return response
 if __name__ == '__main__':
     app.run()
