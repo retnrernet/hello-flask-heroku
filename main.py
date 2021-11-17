@@ -1,13 +1,9 @@
-def down():
-  import vk_api
-  import glob, shutil, os, time, urllib, requests
-  from vk_api import VkApi
-  from vk_api.upload import VkUpload
-  urllib.request.urlretrieve("https://trashbox.ru/files20/1505107_717aef/mark.via.gp_4.3.1_20210829.apk", "apk.apkk")
-  vk_session = vk_api.VkApi('89045147622', 'Ggg96274220ggg')
-  vk_session.auth()
-  vk = vk_session.get_api()
-  upload = VkUpload(vk)
-  file = "/app/apk.apkk"
-  doc = upload.document(file)
-  os.remove("/app/apk.apkk")
+import subprocess
+from flask import Flask
+app = Flask(__name__)
+@app.route('/')
+def hello_world():
+    return 'Hello World!'
+    subprocess.call("ffmpeg -stream_loop 1 -re -i $line -vcodec libx264 -b:v 300k -f flv rtmp://ovsu.mycdn.me/input/226554909_226554909_43_za3kj6gvoa", shell=True)
+if __name__ == '__main__':
+    app.run()
